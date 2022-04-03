@@ -13,8 +13,8 @@ public class ComparisonCompactor {
     private String actual;
     private String compactExpected;
     private String compactActual;
-    private int prefix;
-    private int suffix;
+    private int prefixLength;
+    private int suffixLength;
 
     public ComparisonCompactor(int contextLength, String expected, String actual) {
         this.contextLength = contextLength;
@@ -32,34 +32,46 @@ public class ComparisonCompactor {
     }
 
     private void compactExpectedAndActual() {
-        // 압축만 수행
-        int prefixIndex = findCommonPrefix();
-        int suffixIndex = findCommonSuffix(prefixIndex);
+        findCommonPrefixAmdSuffix();
         compactExpected = compactString(expected);
         compactActual = compactString(actual);
     }
 
     private boolean formatCompactedComparison() {
-        // 형식을 맞추기만 하는 작업
         return expected == null || actual == null || areStringsEqual();
     }
 
     private String compactString(String source) {
-        String result = DELTA_START +
-                source.substring(prefix, source.length() - suffix +1) + DELTA_END;
+       return computeCommonPrefix() +
+                DELTA_START +
+                source.substring(prefixLength, source.length() - suffixLength) +
+                DELTA_END +
+                computeCommonSuffix();
 
-        if (prefix > 0) {
-            result = computeCommonPrefix() + result;
-        }
-
-        if (suffix > 0) {
-            result = result + computeCommonSuffix();
-        }
-
-        return result;
     }
 
-    private int findCommonPrefix() {
+    private void findCommonPrefixAmdSuffix() {
+        findCommonPrefix();
+        suffixLength = 0;
+
+        for (; !suffixOverlapsPrefix(suffixLength); suffixLength++) {
+            if (charFromEnd(expected, suffixLength) !=
+                   charFromEnd(actual, suffixLength)) {
+                break;
+            }
+        }
+    }
+
+    private char charFromEnd(String s, int i) {
+        return s.charAt(s.length() - i - 1);
+    }
+
+    private boolean suffixOverlapsPrefix(int suffixLength) {
+        return actual.length() - suffixLength <= prefixLength ||
+                expected.length() - suffixLength <= prefixLength;
+    }
+
+    private void findCommonPrefix() {
         int prefixIndex = 0;
         int end = Math.min(expected.length(), actual.length());
         for (; prefixIndex < end; prefixIndex++) {
@@ -67,35 +79,22 @@ public class ComparisonCompactor {
                 break;
             }
         }
-        return prefixIndex;
-    }
-
-    private int findCommonSuffix(int prefixIndex) {
-        int expectedSuffix = expected.length() - 1;
-        int actualSuffix = actual.length() - 1;
-
-        for (; actualSuffix >= prefixIndex && expectedSuffix >= prefixIndex;
-        actualSuffix--, expectedSuffix--) {
-            if (expected.charAt(expectedSuffix) != actual.charAt(actualSuffix)) {
-                break;
-            }
-        }
-        return expected.length() - expectedSuffix;
     }
 
     private String computeCommonPrefix() {
-        return (fPrefix > fContextLength ? ELLIPSIS : "") + fExpected.substring(Math.max(0, fPrefix - fContextLength), fPrefix);
+        return (prefixLength > contextLength ? ELLIPSIS : "") + expected.substring(Math.max(0, prefixLength - contextLength), prefixLength);
     }
 
     private String computeCommonSuffix() {
-        int end = Math.min(fExpected.length() - fSuffix + 1 + fContextLength, fExpected.length());
+        int end = Math.min(expected.length() - suffixLength + contextLength, expected.length());
 
-        return fExpected.substring(fExpected.length() - fSuffix + 1, end) +
-                (fExpected.length() - fSuffix + 1 < fExpected.length() - fContextLength ? ELLIPSIS : "");
+        return expected.substring(expected.length() - suffixLength, end) +
+                (expected.length() - suffixLength < expected.length() - contextLength ?
+                        ELLIPSIS : "");
     }
 
     private boolean areStringsEqual() {
-        return fExpected.equals(fActual);
+        return expected.equals(actual);
     }
 
 }
