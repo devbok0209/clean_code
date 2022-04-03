@@ -22,32 +22,62 @@ public class ComparisonCompactor {
         this.actual = actual;
     }
 
-    public String compact(String message) {
-        if (formatCompactedComparison()) {
-            compactExpectedAndActual();
-            return String.format("%s %s %s", message, compactExpected, compactActual);
-        } else {
-            return String.format("%s %s %s", message, expected, actual);
+    public String compact(String s) {
+        return new StringBuilder()
+                .append(startingEllipsis())
+                .append(startingContext())
+                .append(DELTA_START)
+                .append(delta(s))
+                .append(DELTA_END)
+                .append(endingContext())
+                .append(endingEllipsis())
+                .toString();
+    }
+
+    private String endingContext() {
+        int contextStart = expected.length() - suffixLength;
+        int contextEnd =
+                Math.min(contextStart + contextLength, expected.length());
+        return expected.substring(contextStart, contextEnd);
+    }
+
+    private String endingEllipsis() {
+        return (suffixLength > contextLength ? ELLIPSIS : "");
+    }
+
+    private String startingContext() {
+        int contextStart = Math.max(0, prefixLength - contextLength);
+        int contextEnd = prefixLength;
+        return expected.substring(contextStart, contextEnd);
+    }
+
+    private String startingEllipsis() {
+        return prefixLength > contextLength ? ELLIPSIS : "";
+    }
+
+    private String delta(String s) {
+        int deltaStart = prefixLength;
+        int deltaEnd = s.length() - suffixLength;
+        return expected.substring(deltaStart, deltaEnd);
+    }
+
+    public String formatCompactedComparison(String message) {
+        String compactExpected = expected;
+        String compactActual = actual;
+        if (shouldBeCompacted()) {
+            findCommonPrefixAmdSuffix();;
+            compactExpected = compact(expected);
+            compactActual = compact(actual);
         }
+        return Assert.format(message, compactExpected, compactActual);
     }
 
-    private void compactExpectedAndActual() {
-        findCommonPrefixAmdSuffix();
-        compactExpected = compactString(expected);
-        compactActual = compactString(actual);
+    private boolean shouldBeCompacted() {
+        return !shouldNotBeCompacted();
     }
 
-    private boolean formatCompactedComparison() {
-        return expected == null || actual == null || areStringsEqual();
-    }
-
-    private String compactString(String source) {
-       return computeCommonPrefix() +
-                DELTA_START +
-                source.substring(prefixLength, source.length() - suffixLength) +
-                DELTA_END +
-                computeCommonSuffix();
-
+    private boolean shouldNotBeCompacted() {
+        return expected == null || actual == null || expected.equals(actual);
     }
 
     private void findCommonPrefixAmdSuffix() {
@@ -80,21 +110,4 @@ public class ComparisonCompactor {
             }
         }
     }
-
-    private String computeCommonPrefix() {
-        return (prefixLength > contextLength ? ELLIPSIS : "") + expected.substring(Math.max(0, prefixLength - contextLength), prefixLength);
-    }
-
-    private String computeCommonSuffix() {
-        int end = Math.min(expected.length() - suffixLength + contextLength, expected.length());
-
-        return expected.substring(expected.length() - suffixLength, end) +
-                (expected.length() - suffixLength < expected.length() - contextLength ?
-                        ELLIPSIS : "");
-    }
-
-    private boolean areStringsEqual() {
-        return expected.equals(actual);
-    }
-
 }
